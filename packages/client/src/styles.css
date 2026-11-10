@@ -920,6 +920,111 @@ textarea:focus-visible {
   font-family: "STSong", "SimSun", serif;
 }
 
+.confirm-backdrop {
+  z-index: 90;
+}
+
+.confirm-card {
+  width: min(500px, 100%);
+  padding: 26px;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--paper) 92%, #fff), var(--paper-warm));
+  border: 1px solid color-mix(in srgb, var(--danger-action) 24%, var(--line));
+  border-left: 4px solid var(--danger-action);
+  border-radius: 16px 16px 16px 6px;
+  box-shadow: var(--shadow);
+  animation: panel-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.confirm-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.confirm-symbol {
+  display: grid;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  color: #fff;
+  font-family: "STSong", "SimSun", serif;
+  font-size: 21px;
+  background: var(--danger-action);
+  border-radius: 13px 13px 13px 4px;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--danger-action) 24%, transparent);
+}
+
+.confirm-heading .eyebrow {
+  color: var(--danger-action);
+}
+
+.confirm-heading h2 {
+  margin: 0;
+  font-family: "STSong", "SimSun", serif;
+  font-size: max(23px, calc(23px * var(--font-scale)));
+}
+
+.confirm-description,
+.confirm-note {
+  margin: 18px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--fs-body);
+  line-height: 1.65;
+}
+
+.confirm-subject {
+  margin-top: 14px;
+  padding: 12px 14px;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-family: "STSong", "SimSun", serif;
+  font-size: max(18px, calc(18px * var(--font-scale)));
+  background: color-mix(in srgb, var(--danger-soft) 58%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--danger-action) 18%, var(--line));
+  border-radius: 10px;
+}
+
+.confirm-note {
+  margin-top: 12px;
+  color: var(--ink-faint);
+  font-size: var(--fs-caption);
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.danger-button {
+  min-height: 40px;
+  padding: 9px 16px;
+  color: #fff;
+  font-weight: 700;
+  background: var(--danger-action);
+  border: 1px solid var(--danger-action);
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+
+.danger-button:hover {
+  background: var(--danger-action-hover);
+  border-color: var(--danger-action-hover);
+  transform: translateY(-1px);
+}
+
+.danger-button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
 .close-hint-backdrop {
   z-index: 130;
   background:
@@ -2234,6 +2339,24 @@ textarea:focus-visible {
 
   .settings-panel {
     padding: 18px;
+  }
+
+  .confirm-backdrop {
+    padding: 16px;
+  }
+
+  .confirm-card {
+    padding: 22px 20px;
+  }
+
+  .confirm-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .confirm-actions button {
+    width: 100%;
+    min-height: 44px;
   }
 
   .close-hint-card {

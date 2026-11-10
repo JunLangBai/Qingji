@@ -16,6 +16,7 @@ import {
   CompletionCelebration,
 } from "./CompletionCelebration";
 import type { CompletionOrigin } from "./CompleteTaskButton";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { EmptyState } from "./EmptyState";
 import { formatToday } from "./formatters";
 import { HistoryPanel } from "./HistoryPanel";
@@ -58,6 +59,15 @@ interface SelectionToolbarProps {
   onToggleAll(): void;
   onClear(): void;
   children: ReactNode;
+}
+
+interface DeleteConfirmation {
+  taskIds: string[];
+  title: string;
+  description: string;
+  subject?: string;
+  confirmLabel: string;
+  resetSelection: boolean;
 }
 
 function SelectionToolbar({
@@ -113,6 +123,9 @@ export function MainView({ settings }: MainViewProps) {
   const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [deleteConfirmation, setDeleteConfirmation] =
+    useState<DeleteConfirmation | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const workspaceRef = useRef<HTMLElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const settingsCloseButtonRef = useRef<HTMLButtonElement>(null);
@@ -412,21 +425,53 @@ export function MainView({ settings }: MainViewProps) {
     }
   }
 
-  async function handleDelete(task: Task) {
-    if (!window.confirm(`删除“${task.title}”？`)) return;
-    await deleteTask(task.id);
+  function handleDelete(task: Task) {
+    const isCompleted = task.status === "completed";
+    setDeleteConfirmation({
+      taskIds: [task.id],
+      title: isCompleted ? "删除这条完成记录？" : "删除这个待办事项？",
+      description: isCompleted
+        ? "这条完成记录将从历史中移除。"
+        : "这个未完成事项将从待办中移除。",
+      subject: task.title,
+      confirmLabel: isCompleted ? "删除记录" : "删除事项",
+      resetSelection: false,
+    });
   }
 
-  async function handleDeleteSelected() {
+  function handleDeleteSelected() {
     if (selectedVisibleIds.length === 0) return;
-    if (
-      !window.confirm(`删除所选 ${selectedVisibleIds.length} 项？`)
-    ) {
-      return;
+    const deletingHistory = activeView === "history";
+    setDeleteConfirmation({
+      taskIds: [...selectedVisibleIds],
+      title: deletingHistory
+        ? `删除所选 ${selectedVisibleIds.length} 条完成记录？`
+        : `删除所选 ${selectedVisibleIds.length} 个事项？`,
+      description: deletingHistory
+        ? "所选完成记录将同时从历史中移除。"
+        : "所选事项将同时从待办中移除。",
+      confirmLabel: deletingHistory ? "删除所选记录" : "删除所选事项",
+      resetSelection: true,
+    });
+  }
+
+  async function confirmDelete() {
+    if (!deleteConfirmation) return;
+    setDeleting(true);
+    try {
+      if (deleteConfirmation.taskIds.length === 1) {
+        await deleteTask(deleteConfirmation.taskIds[0]!);
+      } else {
+        await deleteTasks(deleteConfirmation.taskIds);
+      }
+      if (deleteConfirmation.resetSelection) {
+        setSelectionMode(false);
+        setSelectedTaskIds([]);
+      }
+      setDeleteConfirmation(null);
+    } finally {
+      setDeleting(false);
     }
-    await deleteTasks(selectedVisibleIds);
-    setSelectionMode(false);
-    setSelectedTaskIds([]);
   }
 
   function openSticky(task: Task) {
@@ -609,7 +654,7 @@ export function MainView({ settings }: MainViewProps) {
               selectedTaskIds={selectedSet}
               onSelectCreatedOn={changeHistoryCreatedOn}
               onRestore={(task) => void restoreCompletedTask(task)}
-              onDelete={(task) => void handleDelete(task)}
+              onDelete={handleDelete}
               onToggleSelection={toggleTaskSelection}
               onToggleSelectionMode={toggleSelectionMode}
             />
@@ -699,7 +744,7 @@ export function MainView({ settings }: MainViewProps) {
                 onComplete={(task, origin) =>
                   void handleComplete(task, origin)
                 }
-                onDelete={(task) => void handleDelete(task)}
+                onDelete={handleDelete}
                 onEdit={setEditingTask}
                 onOpenSticky={openSticky}
                 onToggleSelection={toggleTaskSelection}
@@ -730,6 +775,20 @@ export function MainView({ settings }: MainViewProps) {
           task={editingTask}
           onClose={() => setEditingTask(null)}
           onSave={saveEditedTask}
+        />
+      ) : null}
+
+      {deleteConfirmation ? (
+        <ConfirmDialog
+          title={deleteConfirmation.title}
+          description={deleteConfirmation.description}
+          subject={deleteConfirmation.subject}
+          confirmLabel={deleteConfirmation.confirmLabel}
+          busy={deleting}
+          onConfirm={() => void confirmDelete()}
+          onCancel={() => {
+            if (!deleting) setDeleteConfirmation(null);
+          }}
         />
       ) : null}
 
