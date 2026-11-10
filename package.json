@@ -22,7 +22,9 @@
     "setup:local": "node scripts/init-local-env.mjs",
     "desktop:dist": "npm run dist -w @qingji/desktop",
     "mobile:sync": "npm run sync -w @qingji/mobile",
-    "mobile:build:debug": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android-debug.ps1"
+    "mobile:signing:init": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/init-android-signing.ps1",
+    "mobile:build:debug": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android-debug.ps1",
+    "mobile:build:release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android-release.ps1"
   },
   "devDependencies": {
     "concurrently": "^10.0.7",

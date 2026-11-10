@@ -94,6 +94,19 @@ npm run mobile:sync
 npm run mobile:build:debug
 ```
 
+Android release APK 需要先通过环境变量提供正式签名信息：
+
+```powershell
+$env:ANDROID_KEYSTORE_PATH = "C:\secure\qingji-release.keystore"
+$env:ANDROID_KEYSTORE_PASSWORD = "<store-password>"
+$env:ANDROID_KEY_ALIAS = "qingji"
+$env:ANDROID_KEY_PASSWORD = "<key-password>"
+npm run mobile:sync
+npm run mobile:build:release
+```
+
+签名文件不得提交到仓库。以后安装升级必须继续使用同一份 keystore。
+
 ## 数据方式
 
 清记默认将所有事项保存在当前设备。用户也可以填写自建服务器地址并登录账号，在 Windows 与 Android 之间同步数据。
