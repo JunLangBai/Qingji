@@ -7,6 +7,7 @@ import {
   CompleteTaskButton,
   type CompletionOrigin,
 } from "./CompleteTaskButton";
+import { DeleteTaskButton } from "./DeleteTaskButton";
 import { formatCreatedOn, formatDue } from "./formatters";
 import type { CompletionMode } from "./settingsStore";
 
@@ -113,14 +114,10 @@ export function TaskGroups({
                     >
                       编辑
                     </button>
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={`删除 ${task.title}`}
-                      onClick={() => onDelete(task)}
-                    >
-                      ×
-                    </button>
+                    <DeleteTaskButton
+                      taskTitle={task.title}
+                      onDelete={() => onDelete(task)}
+                    />
                   </div>
                 </div>
               );

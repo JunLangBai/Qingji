@@ -1,4 +1,5 @@
 import type { Task } from "@qingji/domain";
+import { DeleteTaskButton } from "./DeleteTaskButton";
 import { formatCompletedAt, formatDue } from "./formatters";
 import { EmptyState } from "./EmptyState";
 
@@ -12,6 +13,7 @@ interface HistoryPanelProps {
   selectedTaskIds: ReadonlySet<string>;
   onSelectCreatedOn(value: string): void;
   onRestore(task: Task): void;
+  onDelete(task: Task): void;
   onToggleSelection(taskId: string): void;
   onToggleSelectionMode(): void;
 }
@@ -26,6 +28,7 @@ export function HistoryPanel({
   selectedTaskIds,
   onSelectCreatedOn,
   onRestore,
+  onDelete,
   onToggleSelection,
   onToggleSelectionMode,
 }: HistoryPanelProps) {
@@ -103,13 +106,19 @@ export function HistoryPanel({
               <time>
                 完成于 {formatCompletedAt(task.completedAt ?? task.updatedAt)}
               </time>
-              <button
-                className="text-button history-restore-button"
-                type="button"
-                onClick={() => onRestore(task)}
-              >
-                恢复到待办
-              </button>
+              <div className="history-actions">
+                <button
+                  className="text-button history-restore-button"
+                  type="button"
+                  onClick={() => onRestore(task)}
+                >
+                  恢复到待办
+                </button>
+                <DeleteTaskButton
+                  taskTitle={task.title}
+                  onDelete={() => onDelete(task)}
+                />
+              </div>
             </article>
           ))}
         </div>

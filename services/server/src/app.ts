@@ -22,6 +22,7 @@ import {
 } from "./taskCrypto.js";
 import { encryptLegacyMutationResults } from "./taskMutationResults.js";
 import {
+  createReleaseDiscovery,
   readConfiguredRelease,
   registerUpdateRoutes,
 } from "./updates.js";
@@ -97,10 +98,14 @@ export async function buildApp(
     }
     return payload;
   });
-  const release =
+  const configuredRelease =
     options.appRelease === undefined
       ? readConfiguredRelease()
       : options.appRelease;
+  const releaseDiscovery =
+    options.appRelease === undefined && !configuredRelease
+      ? createReleaseDiscovery()
+      : undefined;
 
   app.get("/health", async () => {
     if (!pool) {
@@ -129,7 +134,7 @@ export async function buildApp(
       accounts: Boolean(pool),
       realtimeSync: Boolean(pool),
       backupExport: true,
-      appUpdates: Boolean(release),
+      appUpdates: Boolean(configuredRelease || releaseDiscovery),
       auditLog: Boolean(pool),
       encryptedTaskFields:
         Boolean(process.env.TASK_DATA_ENCRYPTION_KEY) ||
@@ -137,7 +142,11 @@ export async function buildApp(
     },
   }));
 
-  await registerUpdateRoutes(app, release);
+  await registerUpdateRoutes(
+    app,
+    configuredRelease,
+    releaseDiscovery,
+  );
 
   if (pool) {
     const cipher = createTaskFieldCipher({
@@ -182,11 +191,14 @@ export async function buildApp(
           userId = session.userId;
           liveHub.add(userId, liveSocket);
           socket.send(JSON.stringify({ type: "authenticated" }));
-          if (release) {
+          const availableRelease =
+            configuredRelease ??
+            (await releaseDiscovery?.().catch(() => null));
+          if (availableRelease) {
             socket.send(
               JSON.stringify({
                 type: "app-update-available",
-                release,
+                release: availableRelease,
               }),
             );
           }

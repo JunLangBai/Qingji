@@ -75,21 +75,28 @@ export function TaskCaptureCard({
     <section className="capture-card">
       <form onSubmit={(event) => void handleCreate(event)} className="capture-form">
         <div className="capture-main">
-          <label htmlFor="new-title">记下一件事</label>
-          <input
-            id="new-title"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="例如：周五前提交方案"
-            autoComplete="off"
-          />
-          <input
-            className="note-input"
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            placeholder="补充说明（可选）"
-            autoComplete="off"
-          />
+          <label className="capture-field capture-title-field" htmlFor="new-title">
+            <span>事项内容</span>
+            <textarea
+              id="new-title"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="例如：周五前提交方案"
+              rows={2}
+              autoComplete="off"
+            />
+          </label>
+          <label className="capture-field capture-note-field" htmlFor="new-note">
+            <span>补充说明（可选）</span>
+            <textarea
+              id="new-note"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="补充地点、联系人或执行细节"
+              rows={2}
+              autoComplete="off"
+            />
+          </label>
         </div>
         <div className="capture-footer">
           <div className="capture-fields">

@@ -56,6 +56,66 @@ export interface TaskGroup {
   tasks: Task[];
 }
 
+function comparePrereleaseIdentifiers(
+  left: string[],
+  right: string[],
+): number {
+  if (left.length === 0 && right.length === 0) return 0;
+  if (left.length === 0) return 1;
+  if (right.length === 0) return -1;
+
+  const length = Math.max(left.length, right.length);
+  for (let index = 0; index < length; index += 1) {
+    const leftPart = left[index];
+    const rightPart = right[index];
+    if (leftPart === undefined) return -1;
+    if (rightPart === undefined) return 1;
+
+    const leftNumeric = /^\d+$/.test(leftPart);
+    const rightNumeric = /^\d+$/.test(rightPart);
+    if (leftNumeric && rightNumeric) {
+      const difference =
+        Number.parseInt(leftPart, 10) - Number.parseInt(rightPart, 10);
+      if (difference !== 0) return difference;
+      continue;
+    }
+    if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
+    const difference =
+      leftPart < rightPart ? -1 : leftPart > rightPart ? 1 : 0;
+    if (difference !== 0) return difference;
+  }
+  return 0;
+}
+
+export function compareVersions(left: string, right: string): number {
+  const parse = (value: string) => {
+    const normalized = value.trim().replace(/^v/i, "").split("+", 1)[0] ?? "";
+    const separator = normalized.indexOf("-");
+    const core = separator === -1 ? normalized : normalized.slice(0, separator);
+    const prerelease =
+      separator === -1 ? [] : normalized.slice(separator + 1).split(".");
+    return {
+      core: core.split(".").map((part) => Number.parseInt(part, 10) || 0),
+      prerelease,
+    };
+  };
+  const leftVersion = parse(left);
+  const rightVersion = parse(right);
+  const coreLength = Math.max(
+    leftVersion.core.length,
+    rightVersion.core.length,
+  );
+  for (let index = 0; index < coreLength; index += 1) {
+    const difference =
+      (leftVersion.core[index] ?? 0) - (rightVersion.core[index] ?? 0);
+    if (difference !== 0) return difference;
+  }
+  return comparePrereleaseIdentifiers(
+    leftVersion.prerelease,
+    rightVersion.prerelease,
+  );
+}
+
 function dateParts(date: Date, timeZone?: string) {
   const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone,

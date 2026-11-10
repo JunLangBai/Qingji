@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  compareVersions,
   completedTasksNewestFirst,
   getDateKey,
   getDueState,
@@ -63,6 +64,18 @@ describe("deadline rules", () => {
       overdue: 1,
       activeTotal: 2,
     });
+  });
+});
+
+describe("release versions", () => {
+  it("orders stable and prerelease versions using semantic version rules", () => {
+    expect(compareVersions("v0.1.2", "0.1.1")).toBeGreaterThan(0);
+    expect(compareVersions("0.1.2-alpha.1", "0.1.1")).toBeGreaterThan(0);
+    expect(compareVersions("0.1.2-alpha.2", "0.1.2-alpha.1")).toBeGreaterThan(
+      0,
+    );
+    expect(compareVersions("0.1.2", "0.1.2-alpha.2")).toBeGreaterThan(0);
+    expect(compareVersions("v0.1.2+build.4", "0.1.2")).toBe(0);
   });
 });
 

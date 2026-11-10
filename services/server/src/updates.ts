@@ -3,8 +3,24 @@ import type {
   AppReleaseInfo,
   AppUpdateStatus,
 } from "@qingji/contracts";
+import { compareVersions } from "@qingji/domain";
+export { compareVersions };
 
 const VERSION_PATTERN = /^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
+const RELEASE_FEED_URL =
+  "https://github.com/JunLangBai/Qingji/releases.atom";
+const RELEASE_DISCOVERY_TTL_MS = 10 * 60 * 1_000;
+
+type FetchLike = (
+  input: string,
+  init?: RequestInit,
+) => Promise<Response>;
+
+interface ReleaseCandidate {
+  latestVersion: string;
+  releaseUrl: string;
+  notes?: string;
+}
 
 export function isGitHubReleaseUrl(value: string): boolean {
   try {
@@ -17,25 +33,6 @@ export function isGitHubReleaseUrl(value: string): boolean {
   } catch {
     return false;
   }
-}
-
-function versionParts(version: string): number[] {
-  return version
-    .replace(/^v/i, "")
-    .split(/[.+-]/)
-    .slice(0, 3)
-    .map((part) => Number.parseInt(part, 10) || 0);
-}
-
-export function compareVersions(left: string, right: string): number {
-  const leftParts = versionParts(left);
-  const rightParts = versionParts(right);
-  for (let index = 0; index < 3; index += 1) {
-    const difference =
-      (leftParts[index] ?? 0) - (rightParts[index] ?? 0);
-    if (difference !== 0) return difference;
-  }
-  return 0;
 }
 
 export function readConfiguredRelease(
@@ -62,6 +59,95 @@ export function readConfiguredRelease(
   };
 }
 
+export function parsePublishedReleaseFeed(xml: string): ReleaseCandidate[] {
+  const candidates: ReleaseCandidate[] = [];
+  for (const match of xml.matchAll(/<entry>([\s\S]*?)<\/entry>/gi)) {
+    const entry = match[1] ?? "";
+    const releaseUrl = entry.match(
+      /https:\/\/github\.com\/JunLangBai\/Qingji\/releases\/tag\/[^"<\s]+/i,
+    )?.[0];
+    if (!releaseUrl) continue;
+    const tag = decodeURIComponent(
+      releaseUrl.split("/").pop() ?? "",
+    ).replace(/^v/i, "");
+    if (!VERSION_PATTERN.test(tag)) continue;
+    candidates.push({
+      latestVersion: tag,
+      releaseUrl,
+    });
+  }
+  return candidates;
+}
+
+export async function discoverLatestPublishedRelease(
+  fetcher: FetchLike = fetch,
+): Promise<AppReleaseInfo | null> {
+  const feedResponse = await fetcher(RELEASE_FEED_URL, {
+    headers: {
+      Accept: "application/atom+xml",
+      "User-Agent": "qingji-server-release-discovery",
+    },
+    signal: AbortSignal.timeout(4_000),
+  });
+  if (!feedResponse.ok) return null;
+
+  const candidates = parsePublishedReleaseFeed(await feedResponse.text());
+  candidates.sort((left, right) =>
+    compareVersions(right.latestVersion, left.latestVersion),
+  );
+  const recentCandidates = candidates.slice(0, 5);
+  const hasInstallableAsset = await Promise.all(
+    recentCandidates.map(async (candidate) => {
+      const assetUrl = candidate.releaseUrl.replace(
+        "/releases/tag/",
+        "/releases/expanded_assets/",
+      );
+      try {
+        const assetResponse = await fetcher(assetUrl, {
+          headers: {
+            Accept: "text/html",
+            "User-Agent": "qingji-server-release-discovery",
+          },
+          signal: AbortSignal.timeout(3_000),
+        });
+        if (!assetResponse.ok) return false;
+        const assetHtml = await assetResponse.text();
+        return /href="[^"]+\.(?:exe|apk)(?:\?[^"]*)?"/i.test(assetHtml);
+      } catch {
+        return false;
+      }
+    }),
+  );
+  const index = hasInstallableAsset.findIndex(Boolean);
+  return index === -1 ? null : (recentCandidates[index] ?? null);
+}
+
+export function createReleaseDiscovery(
+  fetcher: FetchLike = fetch,
+  now: () => number = Date.now,
+): () => Promise<AppReleaseInfo | null> {
+  let cachedRelease: AppReleaseInfo | null | undefined;
+  let cacheExpiresAt = 0;
+  let pending: Promise<AppReleaseInfo | null> | undefined;
+
+  return async () => {
+    if (cachedRelease !== undefined && now() < cacheExpiresAt) {
+      return cachedRelease;
+    }
+    pending ??= discoverLatestPublishedRelease(fetcher)
+      .catch(() => null)
+      .then((release) => {
+        cachedRelease = release;
+        cacheExpiresAt = now() + RELEASE_DISCOVERY_TTL_MS;
+        return release;
+      })
+      .finally(() => {
+        pending = undefined;
+      });
+    return pending;
+  };
+}
+
 export function getUpdateStatus(
   currentVersion: string,
   release: AppReleaseInfo | null,
@@ -81,6 +167,7 @@ export function getUpdateStatus(
 export async function registerUpdateRoutes(
   app: FastifyInstance,
   release: AppReleaseInfo | null,
+  releaseDiscovery?: () => Promise<AppReleaseInfo | null>,
 ): Promise<void> {
   app.get<{
     Querystring: { currentVersion?: string; platform?: string };
@@ -92,6 +179,13 @@ export async function registerUpdateRoutes(
         message: "当前版本号无效",
       });
     }
-    return getUpdateStatus(currentVersion.replace(/^v/i, ""), release);
+    let currentRelease = release;
+    if (!currentRelease && releaseDiscovery) {
+      currentRelease = await releaseDiscovery().catch(() => null);
+    }
+    return getUpdateStatus(
+      currentVersion.replace(/^v/i, ""),
+      currentRelease,
+    );
   });
 }

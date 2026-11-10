@@ -125,10 +125,14 @@ export function CompleteTaskButton({
         .join(" ")}
       aria-label={
         mode === "hold"
-          ? `长按完成 ${task.title}`
-          : `完成 ${task.title}`
+          ? `按住以标记 ${task.title} 为完成`
+          : `标记 ${task.title} 为完成`
       }
-      title={mode === "hold" ? "按住 0.6 秒完成" : "单击完成"}
+      title={
+        mode === "hold"
+          ? "按住 0.6 秒，将事项移入完成记录"
+          : "标记为完成，并移入完成记录"
+      }
       onPointerDown={beginHold}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
@@ -137,11 +141,8 @@ export function CompleteTaskButton({
       onKeyDown={handleKeyDown}
     >
       <span className="complete-button-ring" aria-hidden="true" />
-      <span className="complete-button-mark" aria-hidden="true">
-        ✓
-      </span>
       <span className="complete-button-label">
-        {mode === "hold" ? "长按" : "完成"}
+        {mode === "hold" ? "按住完成" : "标记完成"}
       </span>
     </button>
   );

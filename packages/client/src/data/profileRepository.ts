@@ -2,11 +2,12 @@ import type {
   LocalProfile,
   LocalProfileRecord,
 } from "@qingji/contracts";
-import {
-  getLocalDateKey,
-  type Task,
-} from "@qingji/domain";
+import type { Task } from "@qingji/domain";
 import { validateTask } from "./backup";
+import {
+  createWelcomeTask,
+  replaceLegacyDemoTasks,
+} from "./onboarding";
 import {
   ProfileVersionConflictError,
   getProfileStore,
@@ -107,36 +108,6 @@ function parseLegacyTasks(): Task[] | null {
   }
 }
 
-function seedTasks(deviceId: string): Task[] {
-  const now = Date.now();
-  const create = (
-    title: string,
-    createdOffsetMs: number,
-    dueOffsetMs: number,
-  ): Task => {
-    const createdAt = new Date(now + createdOffsetMs);
-    return {
-      id: crypto.randomUUID(),
-      title,
-      createdAt: createdAt.toISOString(),
-      createdOn: getLocalDateKey(createdAt),
-      createdTimezone:
-        Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-      dueAt: new Date(now + dueOffsetMs).toISOString(),
-      status: "active",
-      updatedAt: new Date().toISOString(),
-      revision: 0,
-      lastModifiedBy: deviceId,
-    };
-  };
-  return [
-    create("整理明天的汇报材料", -2 * 60 * 60 * 1000, 2 * 60 * 60 * 1000),
-    create("回复合作方的确认邮件", -4 * 60 * 60 * 1000, -30 * 60 * 1000),
-    create("下班路上取快递", -24 * 60 * 60 * 1000, -18 * 60 * 60 * 1000),
-    create("续订常用软件", 0, 26 * 60 * 60 * 1000),
-  ];
-}
-
 function initialProfile(
   ownerKey: string,
   deviceId: string,
@@ -145,7 +116,14 @@ function initialProfile(
   if (ownerKey !== "local") return profile;
 
   const legacy = parseLegacyTasks();
-  profile.tasks = legacy ?? seedTasks(deviceId);
+  if (legacy) {
+    profile.tasks = replaceLegacyDemoTasks(
+      legacy,
+      deviceId,
+    ).tasks;
+  } else {
+    profile.tasks = [createWelcomeTask(deviceId)];
+  }
   return profile;
 }
 
@@ -157,10 +135,28 @@ export async function ensureProfile(
   for (let attempt = 0; attempt < PROFILE_RETRY_LIMIT; attempt += 1) {
     const current = await store.read(ownerKey);
     if (current) {
-      return {
-        ...current,
-        profile: parseProfile(current.profile),
-      };
+      const profile = parseProfile(current.profile);
+      const migrated =
+        ownerKey === "local"
+          ? replaceLegacyDemoTasks(profile.tasks, deviceId)
+          : { tasks: profile.tasks, changed: false };
+      if (!migrated.changed) {
+        return { ...current, profile };
+      }
+      try {
+        return await store.write({
+          ownerKey,
+          expectedVersion: current.version,
+          profile: {
+            ...profile,
+            tasks: migrated.tasks,
+            updatedAt: new Date().toISOString(),
+          },
+        });
+      } catch (error) {
+        if (!(error instanceof ProfileVersionConflictError)) throw error;
+        continue;
+      }
     }
     try {
       return await store.write({

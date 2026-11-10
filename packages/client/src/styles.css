@@ -20,6 +20,8 @@
   --bamboo-light: #3a7a52;
   --bamboo-mist: #e8f0eb;
   --danger: #a44c3d;
+  --danger-action: #b84735;
+  --danger-action-hover: #933528;
   --danger-soft: #f4e6df;
   --shadow: 0 22px 70px rgba(47, 40, 29, 0.14);
   --line: rgba(66, 62, 51, 0.12);
@@ -38,6 +40,8 @@
   --bamboo-light: #78d59a;
   --bamboo-mist: #1c2e22;
   --danger: #e58a77;
+  --danger-action: #c94f3d;
+  --danger-action-hover: #e16451;
   --danger-soft: #3d2823;
   --shadow: 0 22px 70px rgba(0, 0, 0, 0.45);
   --line: rgba(235, 230, 218, 0.1);
@@ -73,7 +77,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -83,7 +88,8 @@ button {
 
 button:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+textarea:focus-visible {
   outline: 2px solid var(--bamboo-light);
   outline-offset: 2px;
 }
@@ -301,36 +307,62 @@ select:focus-visible {
 
 .capture-main {
   display: grid;
-  gap: 6px;
+  gap: 14px;
 }
 
-.capture-main label {
+.capture-field {
+  display: grid;
+  gap: 7px;
+}
+
+.capture-field > span {
   color: var(--bamboo);
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
 }
 
-.capture-main input {
+.capture-field textarea {
   width: 100%;
-  padding: 4px 0;
+  min-height: 60px;
+  padding: 11px 13px;
   color: var(--ink);
-  background: transparent;
-  border: 0;
+  line-height: 1.55;
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bamboo) 20%, var(--line));
+  border-radius: 10px;
   outline: 0;
+  resize: vertical;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
 }
 
-.capture-main input:first-of-type {
+.capture-title-field textarea {
+  min-height: 82px;
   font-family: "STSong", "SimSun", serif;
-  font-size: 22px;
+  font-size: max(21px, calc(21px * var(--font-scale)));
+  line-height: 1.35;
 }
 
-.capture-main .note-input {
-  color: var(--ink-faint);
-  font-size: 12px;
+.capture-note-field textarea {
+  min-height: 66px;
+  color: var(--ink-soft);
+  font-size: var(--fs-body);
 }
 
-.capture-main input::placeholder {
+.capture-field textarea:hover {
+  border-color: color-mix(in srgb, var(--bamboo) 34%, var(--line));
+}
+
+.capture-field textarea:focus {
+  background: var(--paper);
+  border-color: var(--bamboo);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bamboo) 14%, transparent);
+}
+
+.capture-field textarea::placeholder {
   color: color-mix(in srgb, var(--ink-faint) 70%, transparent);
 }
 
@@ -554,7 +586,7 @@ select:focus-visible {
 
 .task-row {
   display: grid;
-  grid-template-columns: 88px minmax(0, 1fr) auto;
+  grid-template-columns: 108px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
   padding: 15px 17px;
@@ -583,8 +615,8 @@ select:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  width: 80px;
-  min-height: 38px;
+  width: 96px;
+  min-height: 40px;
   padding: 7px 10px;
   overflow: hidden;
   color: var(--bamboo);
@@ -606,18 +638,6 @@ select:focus-visible {
   background: var(--bamboo);
   border-color: var(--bamboo);
   transform: translateY(-1px);
-}
-
-.complete-button-mark {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  width: 17px;
-  height: 17px;
-  place-items: center;
-  font-size: 12px;
-  border: 1px solid currentColor;
-  border-radius: 50%;
 }
 
 .complete-button-label {
@@ -693,8 +713,7 @@ select:focus-visible {
   display: flex;
   align-items: center;
   gap: 7px;
-  opacity: 0;
-  transition: opacity 140ms ease;
+  opacity: 1;
 }
 
 .task-row:hover .task-actions,
@@ -724,6 +743,39 @@ select:focus-visible {
 
 .icon-button {
   font-size: 17px;
+}
+
+.delete-button {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  place-items: center;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1;
+  background: var(--danger-action);
+  border: 1px solid color-mix(in srgb, var(--danger-action) 76%, #000);
+  border-radius: 7px;
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--danger-action) 18%, transparent);
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+
+.delete-button:hover {
+  background: var(--danger-action-hover);
+  border-color: var(--danger-action-hover);
+  transform: translateY(-1px);
+}
+
+.delete-button:focus-visible {
+  outline-color: var(--danger-action-hover);
+  outline-offset: 3px;
 }
 
 .text-button:hover,
@@ -783,6 +835,13 @@ select:focus-visible {
 
 .history-restore-button {
   align-self: center;
+}
+
+.history-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
 }
 
 .empty-state {
@@ -2138,13 +2197,18 @@ select:focus-visible {
   }
 
   .task-row {
-    grid-template-columns: 86px minmax(0, 1fr);
+    grid-template-columns: 106px minmax(0, 1fr);
   }
 
   .task-actions {
     grid-column: 2;
     flex-wrap: wrap;
     opacity: 1;
+  }
+
+  .delete-button {
+    width: 40px;
+    height: 40px;
   }
 
   .history-row {
@@ -2155,9 +2219,11 @@ select:focus-visible {
     grid-column: 2;
   }
 
-  .history-restore-button {
+  .history-actions {
     grid-column: 3;
     grid-row: 1 / span 2;
+    align-items: flex-end;
+    flex-direction: column;
   }
 
   .setting-row {
@@ -2333,7 +2399,7 @@ body {
 
 .summary-card span,
 .section-heading > p,
-.capture-main label,
+.capture-field > span,
 .capture-footer label,
 .task-group > header > span,
 .date-chip,
@@ -2345,11 +2411,7 @@ body {
   font-size: max(28px, calc(28px * var(--font-scale)));
 }
 
-.capture-main input:first-of-type {
-  font-size: max(22px, calc(22px * var(--font-scale)));
-}
-
-.capture-main .note-input,
+.capture-note-field textarea,
 .task-copy > p,
 .empty-state p,
 .settings-note,

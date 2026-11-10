@@ -609,6 +609,7 @@ export function MainView({ settings }: MainViewProps) {
               selectedTaskIds={selectedSet}
               onSelectCreatedOn={changeHistoryCreatedOn}
               onRestore={(task) => void restoreCompletedTask(task)}
+              onDelete={(task) => void handleDelete(task)}
               onToggleSelection={toggleTaskSelection}
               onToggleSelectionMode={toggleSelectionMode}
             />
