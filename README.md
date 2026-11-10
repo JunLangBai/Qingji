@@ -33,6 +33,10 @@ Android 客户端使用 Capacitor，支持本地 SQLCipher、安全存储、文�
 
 两个客户端共享 React 界面、领域模型和同步协议。
 
+Windows 安装版默认将本机数据保存在程序目录下的
+`data/<Windows用户标识>/`，不会强制写入系统盘。可通过
+`QINGJI_DATA_DIR` 环境变量指定其他数据根目录。
+
 ## 项目结构
 
 ```text

@@ -11,6 +11,7 @@ import {
   shell,
   Tray,
 } from "electron";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -25,12 +26,94 @@ import {
   type WriteLocalProfileRequest,
 } from "@qingji/contracts";
 
-if (!app.isPackaged) {
-  app.setPath(
-    "userData",
-    path.join(app.getPath("userData"), "development"),
-  );
+function userDataFolderName(): string {
+  const username =
+    process.env.USERNAME?.trim() ||
+    process.env.USER?.trim() ||
+    "user";
+  const identity = `${process.env.USERDOMAIN ?? ""}\\${username}`;
+  const identityHash = createHash("sha256")
+    .update(identity.toLocaleLowerCase())
+    .digest("hex")
+    .slice(0, 10);
+  const safeUsername =
+    username
+      .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_")
+      .replace(/[. ]+$/g, "")
+      .slice(0, 40) || "user";
+  return `${safeUsername}-${identityHash}`;
 }
+
+function copyLegacyUserData(source: string, target: string): void {
+  if (
+    !fs.existsSync(source) ||
+    path.resolve(source) === path.resolve(target)
+  ) {
+    return;
+  }
+
+  const temporaryTarget = `${target}.migration-${process.pid}`;
+  fs.rmSync(temporaryTarget, { recursive: true, force: true });
+  fs.mkdirSync(temporaryTarget, { recursive: true });
+
+  const files = [
+    "qingji.sqlite",
+    "qingji.sqlite-wal",
+    "session.bin",
+    "sticky-layouts.json",
+    "desktop-ui-state.json",
+    "Local State",
+    "Preferences",
+  ];
+  const directories = ["Local Storage"];
+
+  try {
+    for (const name of files) {
+      const sourcePath = path.join(source, name);
+      if (fs.existsSync(sourcePath)) {
+        fs.copyFileSync(sourcePath, path.join(temporaryTarget, name));
+      }
+    }
+    for (const name of directories) {
+      const sourcePath = path.join(source, name);
+      if (fs.existsSync(sourcePath)) {
+        fs.cpSync(sourcePath, path.join(temporaryTarget, name), {
+          recursive: true,
+        });
+      }
+    }
+    fs.renameSync(temporaryTarget, target);
+  } catch (error) {
+    fs.rmSync(temporaryTarget, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+function configureUserDataPath(): void {
+  const legacyUserData = app.getPath("userData");
+  if (!app.isPackaged) {
+    app.setPath(
+      "userData",
+      path.join(legacyUserData, "development"),
+    );
+    return;
+  }
+
+  const configuredRoot = process.env.QINGJI_DATA_DIR?.trim();
+  const dataRoot = configuredRoot
+    ? path.resolve(configuredRoot)
+    : path.join(path.dirname(process.execPath), "data");
+  const packagedUserData = path.join(dataRoot, userDataFolderName());
+
+  fs.mkdirSync(path.dirname(packagedUserData), { recursive: true });
+  if (!fs.existsSync(packagedUserData)) {
+    copyLegacyUserData(legacyUserData, packagedUserData);
+  }
+  fs.mkdirSync(packagedUserData, { recursive: true });
+  app.setPath("userData", packagedUserData);
+}
+
+configureUserDataPath();
 
 const TRAY_ICON =
   "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAJ0SURBVFhH7VY9SBxBFD4QgqRKmS6WibeLlhJn2ZSCBEIg5HY90EosLCxCEGwCggEbWwshECIHNpdCSJlGEjtLy4gcXGmZcpxv5+3t25/Zmz3nOj/4OO7u7fvevL+d1iMmxXz8erG9tvwmJb7TX9PBi/Vw1o+DDcWeH4n/6lMa2PfiYGthPXxGjz4ccOjHYlghZqQXiTu/E+wgcHLTFJ/kb3kjv28vVgqk7J4PZIrb880KG3G98DGcI6e2WJEnN+RVDuTpHhxtytMh/dQIA/nj85JEn5Dz8Zh5siKjn3/IAYAgJg8AB0BJvCh8SRJmoGbtTvA3Sd/xJTlRuDospFZzfAkyerH4N7Y50Tj8IQikjrmYNQqBqyCOSKoMPWrmbncRAEZ4/kP4nCTz0OOWiY1LKdikBBnFV5LMQwXwCwZVTic6fYpS/4hrksyA5sg23KG8oGcBBOE2AExFYSL8teWlvBEP4lLu5/57ONVYviNpDfxQMtw7k7fDM9lNv/OxtMTFMfPHqaaNpDV4AxrpMoAo+ELSGu1IdCoNOVkAtR3P7EwBeFGwS9Ia2NUlw8QRq7/DDODAJK2B5VA02r8iL+kLyWUJVNOTdAaVFv0OSMhfPpQFZyUQQ5LMA40xMsIEkJPRHDvKgJq4bySZR1IGWkZ88YycOAqg9v6ItxWMSvXHw25K0CepaiALr94fZFvQsIh4AOY1zYIHVXatLiVP367K7i71AN/jpgzwfmEonr40enVIFlP99bsZi5vPBlhOyfW6yqEt1SEanbwIWlC9kmM79q1qbgOMDua37soGUsZ6ja7hTZHcHXB5xeJKqb5PVXQ6aLXuAVatjcz+BDtXAAAAAElFTkSuQmCC";
