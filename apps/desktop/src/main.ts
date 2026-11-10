@@ -11,7 +11,6 @@ import {
   shell,
   Tray,
 } from "electron";
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -25,69 +24,7 @@ import {
   type SessionSecret,
   type WriteLocalProfileRequest,
 } from "@qingji/contracts";
-
-function userDataFolderName(): string {
-  const username =
-    process.env.USERNAME?.trim() ||
-    process.env.USER?.trim() ||
-    "user";
-  const identity = `${process.env.USERDOMAIN ?? ""}\\${username}`;
-  const identityHash = createHash("sha256")
-    .update(identity.toLocaleLowerCase())
-    .digest("hex")
-    .slice(0, 10);
-  const safeUsername =
-    username
-      .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_")
-      .replace(/[. ]+$/g, "")
-      .slice(0, 40) || "user";
-  return `${safeUsername}-${identityHash}`;
-}
-
-function copyLegacyUserData(source: string, target: string): void {
-  if (
-    !fs.existsSync(source) ||
-    path.resolve(source) === path.resolve(target)
-  ) {
-    return;
-  }
-
-  const temporaryTarget = `${target}.migration-${process.pid}`;
-  fs.rmSync(temporaryTarget, { recursive: true, force: true });
-  fs.mkdirSync(temporaryTarget, { recursive: true });
-
-  const files = [
-    "qingji.sqlite",
-    "qingji.sqlite-wal",
-    "session.bin",
-    "sticky-layouts.json",
-    "desktop-ui-state.json",
-    "Local State",
-    "Preferences",
-  ];
-  const directories = ["Local Storage"];
-
-  try {
-    for (const name of files) {
-      const sourcePath = path.join(source, name);
-      if (fs.existsSync(sourcePath)) {
-        fs.copyFileSync(sourcePath, path.join(temporaryTarget, name));
-      }
-    }
-    for (const name of directories) {
-      const sourcePath = path.join(source, name);
-      if (fs.existsSync(sourcePath)) {
-        fs.cpSync(sourcePath, path.join(temporaryTarget, name), {
-          recursive: true,
-        });
-      }
-    }
-    fs.renameSync(temporaryTarget, target);
-  } catch (error) {
-    fs.rmSync(temporaryTarget, { recursive: true, force: true });
-    throw error;
-  }
-}
+import { resolveUserDataLocation } from "./dataLocation.js";
 
 function configureUserDataPath(): void {
   const legacyUserData = app.getPath("userData");
@@ -99,18 +36,24 @@ function configureUserDataPath(): void {
     return;
   }
 
-  const configuredRoot = process.env.QINGJI_DATA_DIR?.trim();
-  const dataRoot = configuredRoot
-    ? path.resolve(configuredRoot)
-    : path.join(path.dirname(process.execPath), "data");
-  const packagedUserData = path.join(dataRoot, userDataFolderName());
-
-  fs.mkdirSync(path.dirname(packagedUserData), { recursive: true });
-  if (!fs.existsSync(packagedUserData)) {
-    copyLegacyUserData(legacyUserData, packagedUserData);
+  const resolved = resolveUserDataLocation({
+    executablePath: process.execPath,
+    legacyUserData,
+    localAppData:
+      process.env.LOCALAPPDATA?.trim() || app.getPath("appData"),
+    username:
+      process.env.USERNAME?.trim() ||
+      process.env.USER?.trim() ||
+      "user",
+    userDomain: process.env.USERDOMAIN,
+    configuredRoot: process.env.QINGJI_DATA_DIR,
+  });
+  if (resolved.migratedFrom) {
+    console.info(
+      `Migrated Qingji user data from ${resolved.migratedFrom} to ${resolved.userDataPath}`,
+    );
   }
-  fs.mkdirSync(packagedUserData, { recursive: true });
-  app.setPath("userData", packagedUserData);
+  app.setPath("userData", resolved.userDataPath);
 }
 
 configureUserDataPath();
@@ -253,13 +196,21 @@ async function readLocalProfile(
   let profileJson = row.profile_json;
   if (row.profile_json.startsWith("enc:v1:")) {
     if (!(await safeStorage.isAsyncEncryptionAvailable())) {
-      throw new Error("SECURE_STORAGE_UNAVAILABLE");
+      throw new Error(
+        `本机安全存储当前不可用，数据仍保留在 ${app.getPath("userData")}。请勿删除该目录。`,
+      );
     }
-    profileJson = (
-      await safeStorage.decryptStringAsync(
-        Buffer.from(row.profile_json.slice("enc:v1:".length), "base64"),
-      )
-    ).result;
+    try {
+      profileJson = (
+        await safeStorage.decryptStringAsync(
+          Buffer.from(row.profile_json.slice("enc:v1:".length), "base64"),
+        )
+      ).result;
+    } catch {
+      throw new Error(
+        `本机数据解密失败，原数据库仍保留在 ${app.getPath("userData")}。请勿卸载或删除数据目录，并先联系恢复。`,
+      );
+    }
   }
   return {
     ownerKey: key,
@@ -284,7 +235,9 @@ async function writeLocalProfile(
 
   const database = getProfileDatabase();
   if (!(await safeStorage.isAsyncEncryptionAvailable())) {
-    throw new Error("SECURE_STORAGE_UNAVAILABLE");
+    throw new Error(
+      "本机安全存储当前不可用，未写入任何数据。请勿删除现有数据目录。",
+    );
   }
   const profileJson = `enc:v1:${(
     await safeStorage.encryptStringAsync(JSON.stringify(request.profile))

@@ -8,19 +8,19 @@ Qingji is a deadline-first, local-first task app for Windows and Android.
 
 ## 下载
 
-当前预览版 `0.1.2-alpha.1`：
+当前预览版 `0.1.3-alpha.1`：
 
-- [Windows x64 安装包](https://github.com/JunLangBai/Qingji/releases/download/v0.1.2-alpha.1/Qingji-0.1.2-alpha.1-Windows-Setup-x64.exe)
-- [Android APK](https://github.com/JunLangBai/Qingji/releases/download/v0.1.2-alpha.1/Qingji-0.1.2-alpha.1-Android-Release.apk)
-- [SHA-256 校验文件](https://github.com/JunLangBai/Qingji/releases/download/v0.1.2-alpha.1/SHA256SUMS.txt)
+- [Windows x64 安装包](https://github.com/JunLangBai/Qingji/releases/download/v0.1.3-alpha.1/Qingji-0.1.3-alpha.1-Windows-Setup-x64.exe)
+- [Android APK](https://github.com/JunLangBai/Qingji/releases/download/v0.1.3-alpha.1/Qingji-0.1.3-alpha.1-Android-Release.apk)
+- [SHA-256 校验文件](https://github.com/JunLangBai/Qingji/releases/download/v0.1.3-alpha.1/SHA256SUMS.txt)
 - [全部版本](https://github.com/JunLangBai/Qingji/releases)
 
 GitHub 的 Releases 列表默认只展示版本标签；进入具体版本页面后，安装包位于
 “Assets”区域。上面的直链可直接开始下载。
 
 Windows 安装版可通过“设置 → 应用 → 已安装的应用 → 清记 → 卸载”卸载，
-安装目录中也提供 `Uninstall 清记.exe`。本机数据默认位于安装目录的 `data`
-文件夹，卸载前请先在应用内导出备份。
+安装目录中也提供 `Uninstall 清记.exe`。本机数据默认位于安装盘 `QingjiData`
+文件夹，卸载程序不会删除；仍建议卸载前先在应用内导出备份。
 
 ## 功能
 
@@ -49,9 +49,13 @@ Android 客户端使用 Capacitor，支持本地 SQLCipher、安全存储、文�
 
 两个客户端共享 React 界面、领域模型和同步协议。
 
-Windows 安装版默认将本机数据保存在程序目录下的
-`data/<Windows用户标识>/`，不会强制写入系统盘。可通过
+Windows 安装版默认将本机数据保存在安装盘下的
+`QingjiData/<Windows用户标识>/`，不在程序安装目录内，卸载或重装不会删除。
+数据位置会记录到 `%LOCALAPPDATA%\Qingji\data-location.json`；也可通过
 `QINGJI_DATA_DIR` 环境变量指定其他数据根目录。
+
+旧版本位于安装目录 `data/<Windows用户标识>/` 或旧 AppData 的数据会在首次启动
+新版时自动比较并迁移；迁移复制数据，不删除旧目录。
 
 ## 项目结构
 
