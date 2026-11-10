@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: qingji
+      POSTGRES_USER: qingji
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in the root .env}
+      QINGJI_APP_DB_PASSWORD: ${QINGJI_APP_DB_PASSWORD:?Set QINGJI_APP_DB_PASSWORD in the root .env}
+    ports:
+      - "5432:5432"
+    volumes:
+      - qingji-postgres:/var/lib/postgresql
+      - ./services/server/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U qingji -d qingji
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  qingji-postgres:

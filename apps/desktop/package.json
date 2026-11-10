@@ -1,0 +1,58 @@
+{
+  "name": "@qingji/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/main.js",
+  "description": "清记 Windows 桌面客户端",
+  "author": "清记",
+  "scripts": {
+    "dev": "npm run bundle && wait-on http://127.0.0.1:5173 && electron . --remote-debugging-port=9222",
+    "bundle": "esbuild src/main.ts src/preload.ts --bundle --platform=node --format=cjs --external:electron --outdir=dist --sourcemap",
+    "start": "electron .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "dist": "npm run bundle && electron-builder"
+  },
+  "devDependencies": {
+    "@qingji/contracts": "*",
+    "@types/node": "^24.0.0",
+    "electron": "45.2.3",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0",
+    "wait-on": "^9.5.1"
+  },
+  "build": {
+    "appId": "com.qingji.app",
+    "productName": "清记",
+    "asar": true,
+    "electronDist": "../../node_modules/electron/dist",
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../../packages/client/dist",
+        "to": "client"
+      }
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  }
+}

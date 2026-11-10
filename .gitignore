@@ -1,0 +1,59 @@
+# AI notes, local operations, and disposable output
+.ai/
+artifacts/
+*.lnk
+
+# Dependencies and generated output
+node_modules/
+.npm-cache/
+**/dist/
+**/release/
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo
+*.log
+*.hprof
+
+# Android and Gradle
+apps/mobile/android/.gradle/
+apps/mobile/android/local.properties
+apps/mobile/android/**/build/
+apps/mobile/android/capacitor-cordova-android-plugins/
+apps/mobile/android/app/src/main/assets/public/
+*.apk
+*.aab
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+!**/.env.example
+*.keystore
+*.jks
+*.p12
+*.pfx
+*.pem
+*.key
+google-services.json
+
+# Local data, backups, and package output
+*.db
+*.sqlite
+*.dump
+*.dump.enc
+*.hmac
+*.exe
+*.msi
+.deploy-package-*/
+qingji-deploy.tar.gz
+qingji-backup-files.tar.gz
+
+# Editor and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.orig
+*.rej

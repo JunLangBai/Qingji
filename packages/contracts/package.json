@@ -1,0 +1,19 @@
+{
+  "name": "@qingji/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@qingji/domain": "*"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}

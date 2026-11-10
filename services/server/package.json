@@ -1,0 +1,28 @@
+{
+  "name": "@qingji/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run src --passWithNoTests"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.4.1",
+    "@fastify/websocket": "^11.3.7",
+    "@qingji/contracts": "*",
+    "@qingji/domain": "*",
+    "fastify": "^5.12.8",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

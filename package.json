@@ -1,0 +1,32 @@
+{
+  "name": "qingji",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n web,desktop -c blue,green \"npm run dev -w @qingji/client\" \"npm run dev -w @qingji/desktop\"",
+    "dev:client": "npm run dev -w @qingji/client",
+    "dev:desktop": "npm run dev -w @qingji/desktop",
+    "dev:server": "npm run dev -w @qingji/server",
+    "build": "npm run build -w @qingji/domain && npm run build -w @qingji/contracts && npm run build -w @qingji/client && npm run bundle -w @qingji/desktop && npm run build -w @qingji/server",
+    "test": "npm run test --workspaces --if-present",
+    "test:integration": "node scripts/test-integration.mjs",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "setup:local": "node scripts/init-local-env.mjs",
+    "desktop:dist": "npm run dist -w @qingji/desktop",
+    "mobile:sync": "npm run sync -w @qingji/mobile",
+    "mobile:build:debug": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android-debug.ps1"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.7",
+    "typescript": "^7.0.2",
+    "wait-on": "^9.5.1"
+  }
+}

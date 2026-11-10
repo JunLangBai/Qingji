@@ -1,0 +1,50 @@
+FROM node:24-alpine AS build
+
+WORKDIR /app
+
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY services/server/package.json services/server/package.json
+COPY packages/domain/package.json packages/domain/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+
+RUN npm ci \
+  --workspace @qingji/server \
+  --workspace @qingji/domain \
+  --workspace @qingji/contracts
+
+COPY services/server/tsconfig.json services/server/tsconfig.json
+COPY services/server/src services/server/src
+COPY packages/domain/tsconfig.json packages/domain/tsconfig.json
+COPY packages/domain/src packages/domain/src
+COPY packages/contracts/tsconfig.json packages/contracts/tsconfig.json
+COPY packages/contracts/src packages/contracts/src
+
+RUN npm run build -w @qingji/domain \
+  && npm run build -w @qingji/contracts \
+  && npm run build -w @qingji/server
+
+FROM node:24-alpine AS runtime
+
+ENV NODE_ENV=production
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY services/server/package.json services/server/package.json
+COPY packages/domain/package.json packages/domain/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+
+RUN npm ci --omit=dev \
+  --workspace @qingji/server \
+  --workspace @qingji/domain \
+  --workspace @qingji/contracts \
+  && npm cache clean --force
+
+COPY --from=build --chown=node:node /app/services/server/dist services/server/dist
+
+USER node
+EXPOSE 8787
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:8787/health').then((response) => { if (!response.ok) process.exit(1); }).catch(() => process.exit(1))"
+
+CMD ["node", "services/server/dist/index.js"]
