@@ -22,11 +22,11 @@ Qingji is a deadline-first, local-first task app for Windows and Android.
 
 ## 下载
 
-当前预览版为 `0.1.3-alpha.1`：
+当前预览版为 `0.1.4-alpha.1`：
 
-- [Windows x64 安装包](https://github.com/JunLangBai/Qingji/releases/download/v0.1.3-alpha.1/Qingji-0.1.3-alpha.1-Windows-Setup-x64.exe)
-- [Android APK](https://github.com/JunLangBai/Qingji/releases/download/v0.1.3-alpha.1/Qingji-0.1.3-alpha.1-Android-Release.apk)
-- [SHA-256 校验文件](https://github.com/JunLangBai/Qingji/releases/download/v0.1.3-alpha.1/SHA256SUMS.txt)
+- [Windows x64 安装包](https://github.com/JunLangBai/Qingji/releases/download/v0.1.4-alpha.1/Qingji-0.1.4-alpha.1-Windows-Setup-x64.exe)
+- [Android APK](https://github.com/JunLangBai/Qingji/releases/download/v0.1.4-alpha.1/Qingji-0.1.4-alpha.1-Android-Release.apk)
+- [SHA-256 校验文件](https://github.com/JunLangBai/Qingji/releases/download/v0.1.4-alpha.1/SHA256SUMS.txt)
 - [全部版本](https://github.com/JunLangBai/Qingji/releases)
 
 Release 列表只显示版本标签；安装包位于具体版本页面的“Assets”区域。下载后建议先
