@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   compareVersions,
   createReleaseDiscovery,
+  getUpdateAsset,
   getUpdateStatus,
   parsePublishedReleaseFeed,
   readConfiguredRelease,
+  updateAssetName,
 } from "./updates.js";
 
 describe("application updates", () => {
@@ -33,6 +35,27 @@ describe("application updates", () => {
         APP_UPDATE_URL: "https://example.com/qingji/releases/tag/v0.2.0",
       }),
     ).toThrow("GitHub Release");
+  });
+
+  it("builds platform-specific downloads through the update service", () => {
+    const release = {
+      latestVersion: "0.2.0",
+      releaseUrl:
+        "https://github.com/example/qingji/releases/tag/v0.2.0",
+    };
+    expect(updateAssetName("0.2.0", "windows")).toBe(
+      "Qingji-0.2.0-Windows-Setup-x64.exe",
+    );
+    expect(getUpdateAsset(release, "android")).toEqual({
+      name: "Qingji-0.2.0-Android-Release.apk",
+      url:
+        "https://github.com/example/qingji/releases/download/" +
+        "v0.2.0/Qingji-0.2.0-Android-Release.apk",
+    });
+    expect(getUpdateStatus("0.1.0", release, "windows")).toMatchObject({
+      available: true,
+      downloadUrl: "v1/update/download?platform=windows",
+    });
   });
 
   it("discovers a published feed release that contains an installer", async () => {

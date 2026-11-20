@@ -9,7 +9,7 @@ export interface ForwardableAuditEvent {
   deviceId?: string;
   actorUsername?: string;
   ipAddress?: string;
-  metadata?: Record<string, number | boolean | null>;
+  metadata?: Record<string, number | boolean | string | null>;
 }
 
 interface ForwardedEvent {
@@ -21,7 +21,7 @@ interface ForwardedEvent {
   actor?: { id?: string };
   sourceIp?: string;
   deviceId?: string;
-  details?: Record<string, number | boolean | null>;
+  details?: Record<string, number | boolean | string | null>;
 }
 
 function categoryForEvent(eventType: string): string {

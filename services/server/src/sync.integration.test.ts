@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type {
   AuthResponse,
+  PasswordResetResponse,
   SyncMutationResult,
   SyncResponse,
   TaskMutation,
@@ -398,5 +399,99 @@ integration("multi-user sync integration", () => {
       right.results[0]?.status,
     ].sort();
     expect(statuses).toEqual(["applied", "conflict"]);
+  });
+
+  it("resets a password and revokes other device sessions", async () => {
+    const first = await register(`device-${randomUUID()}`);
+    const second = await login(
+      first.username,
+      `device-${randomUUID()}`,
+    );
+    const wrongCurrent = await server.app.inject({
+      method: "POST",
+      url: "/v1/auth/password/reset",
+      headers: { authorization: `Bearer ${first.auth.token}` },
+      payload: {
+        currentPassword: "incorrect-password",
+        newPassword: "integration-password-2",
+      },
+    });
+    expect(wrongCurrent.statusCode).toBe(403);
+
+    const reset = await server.app.inject({
+      method: "POST",
+      url: "/v1/auth/password/reset",
+      headers: { authorization: `Bearer ${first.auth.token}` },
+      payload: {
+        currentPassword: "integration-password",
+        newPassword: "integration-password-2",
+      },
+    });
+    expect(reset.statusCode).toBe(200);
+    expect(reset.json<PasswordResetResponse>()).toEqual({
+      ok: true,
+      revokedSessions: 1,
+    });
+
+    const currentSession = await server.app.inject({
+      method: "GET",
+      url: "/v1/auth/me",
+      headers: { authorization: `Bearer ${first.auth.token}` },
+    });
+    expect(currentSession.statusCode).toBe(200);
+    const revokedSession = await server.app.inject({
+      method: "GET",
+      url: "/v1/auth/me",
+      headers: { authorization: `Bearer ${second.token}` },
+    });
+    expect(revokedSession.statusCode).toBe(401);
+
+    const oldLogin = await server.app.inject({
+      method: "POST",
+      url: "/v1/auth/login",
+      payload: {
+        username: first.username,
+        password: "integration-password",
+        deviceId: `device-${randomUUID()}`,
+        deviceName: "旧密码设备",
+        platform: "windows",
+      },
+    });
+    expect(oldLogin.statusCode).toBe(401);
+    const newLogin = await server.app.inject({
+      method: "POST",
+      url: "/v1/auth/login",
+      payload: {
+        username: first.username,
+        password: "integration-password-2",
+        deviceId: `device-${randomUUID()}`,
+        deviceName: "新密码设备",
+        platform: "windows",
+      },
+    });
+    expect(newLogin.statusCode).toBe(200);
+
+    const auditRows = await adminPool.query<{
+      event_type: string;
+      outcome: string;
+      metadata: Record<string, unknown>;
+    }>(
+      `SELECT event_type, outcome, metadata
+       FROM audit_events
+       WHERE user_id = $1
+         AND event_type = 'auth.password-reset'
+       ORDER BY created_at ASC`,
+      [first.auth.user.id],
+    );
+    expect(auditRows.rows).toEqual([
+      expect.objectContaining({
+        outcome: "denied",
+        metadata: { reason: "invalid_current_password" },
+      }),
+      expect.objectContaining({
+        outcome: "success",
+        metadata: { revokedSessions: 1 },
+      }),
+    ]);
   });
 });

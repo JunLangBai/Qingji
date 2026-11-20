@@ -14,7 +14,7 @@ import {
   subscribeNotificationRuntime,
 } from "./notificationService";
 import type { AppSettings } from "./settingsStore";
-import { APP_VERSION, openReleasePage } from "./updateService";
+import { APP_VERSION, openReleaseAction } from "./updateService";
 
 type SettingsCategory =
   | "appearance"
@@ -597,22 +597,24 @@ export function SettingsDialog({
                     </strong>
                     <p>
                       {updateRelease.notes ||
-                        "前往 GitHub Release 查看更新说明并下载安装包。"}
+                        (updateRelease.downloadUrl
+                          ? "可直接从清记更新服务下载安装包，无需访问 GitHub。"
+                          : "查看更新说明并下载安装包。")}
                     </p>
                     <button
                       className="primary-button"
                       type="button"
-                      onClick={() =>
-                        void openReleasePage(updateRelease.releaseUrl)
-                      }
+                      onClick={() => void openReleaseAction(updateRelease)}
                     >
-                      打开 GitHub Release
+                      {updateRelease.downloadUrl
+                        ? "下载更新"
+                        : "查看更新"}
                     </button>
                   </div>
                 ) : (
                   <p className="field-hint">
-                    服务器发现新版本时会通知客户端，并只提供 GitHub Release
-                    跳转链接，不直接注入代码。
+                    清记会优先通过国内更新服务检查并下载安装包；服务不可用时才
+                    尝试 GitHub。更新不会向客户端注入或执行远程代码。
                   </p>
                 )}
                 {updateMessage ? (

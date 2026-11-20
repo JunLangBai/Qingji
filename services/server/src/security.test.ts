@@ -28,7 +28,8 @@ describe("account security", () => {
     expect(isValidUsername("user_name")).toBe(true);
     expect(isValidUsername("清记用户")).toBe(true);
     expect(isValidUsername("not valid")).toBe(false);
-    expect(() => validatePassword("short")).toThrow("至少需要 10 位");
+    expect(validatePassword("12345678")).toBe("12345678");
+    expect(() => validatePassword("1234567")).toThrow("至少需要 8 位");
   });
 
   it("stores only a stable hash of each random session token", () => {

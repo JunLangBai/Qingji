@@ -10,6 +10,14 @@ describe("public app routes", () => {
         latestVersion: "0.2.0",
         releaseUrl: "https://github.com/example/qingji/releases/tag/v0.2.0",
       },
+      updateFetcher: async () =>
+        new Response(new Uint8Array([1, 2, 3]), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/octet-stream",
+            "Content-Length": "3",
+          },
+        }),
     });
     try {
       const blocked = await app.inject({
@@ -48,6 +56,29 @@ describe("public app routes", () => {
       expect(update.json()).toMatchObject({
         available: true,
         latestVersion: "0.2.0",
+        downloadUrl: "v1/update/download?platform=windows",
+      });
+
+      const download = await app.inject({
+        method: "GET",
+        url: "/v1/update/download?platform=windows",
+      });
+      expect(download.statusCode).toBe(200);
+      expect(download.headers["content-type"]).toBe(
+        "application/octet-stream",
+      );
+      expect(download.headers["content-disposition"]).toContain(
+        "Qingji-0.2.0-Windows-Setup-x64.exe",
+      );
+      expect([...download.rawPayload]).toEqual([1, 2, 3]);
+
+      const invalidPlatform = await app.inject({
+        method: "GET",
+        url: "/v1/update/download?platform=linux",
+      });
+      expect(invalidPlatform.statusCode).toBe(400);
+      expect(invalidPlatform.json()).toMatchObject({
+        code: "INVALID_PLATFORM",
       });
     } finally {
       await app.close();

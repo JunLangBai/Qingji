@@ -4,7 +4,12 @@ import type {
   FastifyReply,
   FastifyRequest,
 } from "fastify";
-import type { AuthRequest, AuthResponse } from "@qingji/contracts";
+import type {
+  AuthRequest,
+  AuthResponse,
+  PasswordResetRequest,
+  PasswordResetResponse,
+} from "@qingji/contracts";
 import type { DatabasePool } from "./db.js";
 import { recordAuditEvent } from "./audit.js";
 import {
@@ -39,6 +44,11 @@ export class AuthError extends Error {
 }
 
 class LoginRateLimiter {
+  constructor(
+    private readonly limitedMessage = "登录尝试过多，请稍后再试",
+    private readonly limitedCode = "LOGIN_RATE_LIMITED",
+  ) {}
+
   private readonly attempts = new Map<
     string,
     { count: number; resetAt: number }
@@ -53,9 +63,9 @@ class LoginRateLimiter {
     }
     if (current.count >= 8) {
       throw new AuthError(
-        "登录尝试过多，请稍后再试",
+        this.limitedMessage,
         429,
-        "LOGIN_RATE_LIMITED",
+        this.limitedCode,
       );
     }
   }
@@ -186,6 +196,10 @@ export async function registerAuthRoutes(
   pool: DatabasePool,
 ): Promise<void> {
   const limiter = new LoginRateLimiter();
+  const resetLimiter = new LoginRateLimiter(
+    "密码重置尝试过多，请稍后再试",
+    "PASSWORD_RESET_RATE_LIMITED",
+  );
 
   app.post("/v1/auth/register", async (request, reply) => {
     try {
@@ -425,6 +439,142 @@ export async function registerAuthRoutes(
         user: { id: session.userId, username: session.username },
       };
     } catch (error) {
+      return sendAuthError(reply, error);
+    }
+  });
+
+  app.post("/v1/auth/password/reset", async (request, reply) => {
+    let session: AuthenticatedSession | null = null;
+    let auditRecorded = false;
+    try {
+      session = await authenticateRequest(request, pool);
+      const rateKey = `${request.ip}:${session.userId}`;
+      resetLimiter.assertAllowed(rateKey);
+      const body = request.body as Partial<PasswordResetRequest>;
+      if (
+        typeof body.currentPassword !== "string" ||
+        !body.currentPassword
+      ) {
+        throw new AuthError(
+          "请输入当前密码",
+          400,
+          "CURRENT_PASSWORD_REQUIRED",
+        );
+      }
+      const newPassword = validatePassword(body.newPassword);
+      if (newPassword === body.currentPassword) {
+        throw new AuthError(
+          "新密码不能与当前密码相同",
+          400,
+          "NEW_PASSWORD_UNCHANGED",
+        );
+      }
+
+      const userResult = await pool.query<{ password_hash: string }>(
+        "SELECT password_hash FROM users WHERE id = $1",
+        [session.userId],
+      );
+      const passwordHash = userResult.rows[0]?.password_hash;
+      const currentPasswordValid =
+        typeof passwordHash === "string" &&
+        (await verifyPassword(body.currentPassword, passwordHash));
+      if (!currentPasswordValid) {
+        resetLimiter.failed(rateKey);
+        await recordAuditEvent(
+          pool,
+          {
+            eventType: "auth.password-reset",
+            outcome: "denied",
+            userId: session.userId,
+            actorUsername: session.username,
+            deviceId: session.deviceId,
+            ipAddress: request.ip,
+            userAgent: request.headers["user-agent"],
+            metadata: { reason: "invalid_current_password" },
+          },
+          request.log,
+        );
+        auditRecorded = true;
+        throw new AuthError(
+          "当前密码不正确",
+          403,
+          "INVALID_CURRENT_PASSWORD",
+        );
+      }
+
+      const nextPasswordHash = await hashPassword(newPassword);
+      const client = await pool.connect();
+      let revokedSessions = 0;
+      try {
+        await client.query("BEGIN");
+        await client.query(
+          "UPDATE users SET password_hash = $2 WHERE id = $1",
+          [session.userId, nextPasswordHash],
+        );
+        const revoked = await client.query(
+          `UPDATE sessions
+           SET revoked_at = now()
+           WHERE user_id = $1
+             AND id <> $2
+             AND revoked_at IS NULL`,
+          [session.userId, session.sessionId],
+        );
+        revokedSessions = revoked.rowCount ?? 0;
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+
+      resetLimiter.succeeded(rateKey);
+      await recordAuditEvent(
+        pool,
+        {
+          eventType: "auth.password-reset",
+          outcome: "success",
+          userId: session.userId,
+          actorUsername: session.username,
+          deviceId: session.deviceId,
+          ipAddress: request.ip,
+          userAgent: request.headers["user-agent"],
+          metadata: { revokedSessions },
+        },
+        request.log,
+      );
+      auditRecorded = true;
+      return {
+        ok: true,
+        revokedSessions,
+      } satisfies PasswordResetResponse;
+    } catch (error) {
+      if (session && !auditRecorded) {
+        const reason =
+          error instanceof AuthError
+            ? error.code.toLowerCase()
+            : error instanceof Error && error.message.startsWith("密码")
+              ? "password_validation_failed"
+              : "reset_failed";
+        await recordAuditEvent(
+          pool,
+          {
+            eventType: "auth.password-reset",
+            outcome:
+              reason === "password_reset_rate_limited" ||
+              reason === "invalid_current_password"
+                ? "denied"
+                : "failure",
+            userId: session.userId,
+            actorUsername: session.username,
+            deviceId: session.deviceId,
+            ipAddress: request.ip,
+            userAgent: request.headers["user-agent"],
+            metadata: { reason },
+          },
+          request.log,
+        );
+      }
       return sendAuthError(reply, error);
     }
   });

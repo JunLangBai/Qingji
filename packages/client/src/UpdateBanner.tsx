@@ -1,5 +1,5 @@
 import type { AppReleaseInfo } from "@qingji/contracts";
-import { openReleasePage } from "./updateService";
+import { openReleaseAction } from "./updateService";
 
 interface UpdateBannerProps {
   release: AppReleaseInfo;
@@ -11,15 +11,20 @@ export function UpdateBanner({ release, onDismiss }: UpdateBannerProps) {
     <section className="update-banner" aria-label="应用更新">
       <div>
         <strong>清记 {release.latestVersion} 已发布</strong>
-        <p>{release.notes || "前往 GitHub Release 查看更新内容。"}</p>
+        <p>
+          {release.notes ||
+            (release.downloadUrl
+              ? "可直接从清记更新服务下载安装包。"
+              : "查看更新说明并下载安装包。")}
+        </p>
       </div>
       <div className="update-banner-actions">
         <button
           className="primary-button"
           type="button"
-          onClick={() => void openReleasePage(release.releaseUrl)}
+          onClick={() => void openReleaseAction(release)}
         >
-          前往 Release
+          {release.downloadUrl ? "下载更新" : "查看更新"}
         </button>
         <button
           className="text-button"

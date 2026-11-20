@@ -1,7 +1,9 @@
+import { Readable } from "node:stream";
 import type { FastifyInstance } from "fastify";
 import type {
   AppReleaseInfo,
   AppUpdateStatus,
+  UpdatePlatform,
 } from "@qingji/contracts";
 import { compareVersions } from "@qingji/domain";
 export { compareVersions };
@@ -10,8 +12,9 @@ const VERSION_PATTERN = /^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
 const RELEASE_FEED_URL =
   "https://github.com/JunLangBai/Qingji/releases.atom";
 const RELEASE_DISCOVERY_TTL_MS = 10 * 60 * 1_000;
+const UPSTREAM_HEADER_TIMEOUT_MS = 15_000;
 
-type FetchLike = (
+export type FetchLike = (
   input: string,
   init?: RequestInit,
 ) => Promise<Response>;
@@ -32,6 +35,60 @@ export function isGitHubReleaseUrl(value: string): boolean {
     );
   } catch {
     return false;
+  }
+}
+
+export function parseUpdatePlatform(
+  value: unknown,
+): UpdatePlatform | null {
+  return value === "windows" || value === "android" ? value : null;
+}
+
+export function updateAssetName(
+  latestVersion: string,
+  platform: UpdatePlatform,
+): string {
+  const version = latestVersion.replace(/^v/i, "");
+  return platform === "android"
+    ? `Qingji-${version}-Android-Release.apk`
+    : `Qingji-${version}-Windows-Setup-x64.exe`;
+}
+
+export function getUpdateAsset(
+  release: AppReleaseInfo,
+  platform: UpdatePlatform,
+): { name: string; url: string } | null {
+  try {
+    const releaseUrl = new URL(release.releaseUrl);
+    const parts = releaseUrl.pathname.split("/").filter(Boolean);
+    if (
+      parts.length !== 5 ||
+      parts[2] !== "releases" ||
+      parts[3] !== "tag"
+    ) {
+      return null;
+    }
+    const owner = parts[0];
+    const repository = parts[1];
+    const tag = decodeURIComponent(parts[4] ?? "");
+    if (
+      !owner ||
+      !/^[0-9A-Za-z_.-]+$/.test(owner) ||
+      !repository ||
+      !/^[0-9A-Za-z_.-]+$/.test(repository) ||
+      tag.replace(/^v/i, "") !== release.latestVersion
+    ) {
+      return null;
+    }
+    const name = updateAssetName(release.latestVersion, platform);
+    return {
+      name,
+      url:
+        `https://github.com/${owner}/${repository}/releases/download/` +
+        `${encodeURIComponent(tag)}/${encodeURIComponent(name)}`,
+    };
+  } catch {
+    return null;
   }
 }
 
@@ -151,23 +208,39 @@ export function createReleaseDiscovery(
 export function getUpdateStatus(
   currentVersion: string,
   release: AppReleaseInfo | null,
+  platform?: UpdatePlatform,
 ): AppUpdateStatus {
   if (!release) {
     return { available: false, currentVersion };
   }
+  const available = compareVersions(release.latestVersion, currentVersion) > 0;
+  const canDownload = Boolean(platform && getUpdateAsset(release, platform));
   return {
-    available: compareVersions(release.latestVersion, currentVersion) > 0,
+    available,
     currentVersion,
     latestVersion: release.latestVersion,
     releaseUrl: release.releaseUrl,
     notes: release.notes,
+    downloadUrl:
+      available && platform && canDownload
+        ? `v1/update/download?platform=${platform}`
+        : undefined,
   };
+}
+
+async function resolveRelease(
+  release: AppReleaseInfo | null,
+  releaseDiscovery?: () => Promise<AppReleaseInfo | null>,
+): Promise<AppReleaseInfo | null> {
+  if (release) return release;
+  return releaseDiscovery?.().catch(() => null) ?? null;
 }
 
 export async function registerUpdateRoutes(
   app: FastifyInstance,
   release: AppReleaseInfo | null,
   releaseDiscovery?: () => Promise<AppReleaseInfo | null>,
+  fetcher: FetchLike = fetch,
 ): Promise<void> {
   app.get<{
     Querystring: { currentVersion?: string; platform?: string };
@@ -179,13 +252,99 @@ export async function registerUpdateRoutes(
         message: "当前版本号无效",
       });
     }
-    let currentRelease = release;
-    if (!currentRelease && releaseDiscovery) {
-      currentRelease = await releaseDiscovery().catch(() => null);
+    const platform = parseUpdatePlatform(request.query.platform);
+    if (request.query.platform && !platform) {
+      return reply.status(400).send({
+        code: "INVALID_PLATFORM",
+        message: "更新平台无效",
+      });
     }
     return getUpdateStatus(
       currentVersion.replace(/^v/i, ""),
-      currentRelease,
+      await resolveRelease(release, releaseDiscovery),
+      platform ?? undefined,
+    );
+  });
+
+  app.get<{
+    Querystring: { platform?: string };
+  }>("/v1/update/download", async (request, reply) => {
+    const platform = parseUpdatePlatform(request.query.platform);
+    if (!platform) {
+      return reply.status(400).send({
+        code: "INVALID_PLATFORM",
+        message: "更新平台无效",
+      });
+    }
+
+    const currentRelease = await resolveRelease(release, releaseDiscovery);
+    const asset = currentRelease
+      ? getUpdateAsset(currentRelease, platform)
+      : null;
+    if (!asset) {
+      return reply.status(404).send({
+        code: "UPDATE_ASSET_NOT_FOUND",
+        message: "暂时没有可下载的安装包",
+      });
+    }
+
+    const controller = new AbortController();
+    const headerTimeout = setTimeout(
+      () => controller.abort(),
+      UPSTREAM_HEADER_TIMEOUT_MS,
+    );
+    let upstream: Response;
+    try {
+      upstream = await fetcher(asset.url, {
+        headers: {
+          Accept: "application/octet-stream",
+          "User-Agent": "qingji-update-proxy",
+          ...(request.headers.range
+            ? { Range: request.headers.range }
+            : {}),
+        },
+        signal: controller.signal,
+      });
+    } catch (error) {
+      request.log.warn({ err: error }, "update download unavailable");
+      return reply.status(502).send({
+        code: "UPDATE_DOWNLOAD_FAILED",
+        message: "更新服务暂时无法获取安装包",
+      });
+    } finally {
+      clearTimeout(headerTimeout);
+    }
+
+    if (!upstream.ok || !upstream.body) {
+      await upstream.body?.cancel().catch(() => undefined);
+      return reply.status(502).send({
+        code: "UPDATE_DOWNLOAD_FAILED",
+        message: "更新服务暂时无法获取安装包",
+      });
+    }
+
+    reply.status(upstream.status === 206 ? 206 : 200);
+    reply.header(
+      "Content-Type",
+      upstream.headers.get("content-type") ?? "application/octet-stream",
+    );
+    reply.header(
+      "Content-Disposition",
+      `attachment; filename="${asset.name}"`,
+    );
+    for (const name of [
+      "content-length",
+      "content-range",
+      "accept-ranges",
+      "etag",
+    ]) {
+      const value = upstream.headers.get(name);
+      if (value) reply.header(name, value);
+    }
+    return reply.send(
+      Readable.from(
+        upstream.body as unknown as AsyncIterable<Uint8Array>,
+      ),
     );
   });
 }

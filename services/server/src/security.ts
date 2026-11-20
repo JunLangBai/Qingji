@@ -5,6 +5,10 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import { promisify } from "node:util";
+import {
+  ACCOUNT_PASSWORD_MAX_LENGTH,
+  ACCOUNT_PASSWORD_MIN_LENGTH,
+} from "@qingji/domain";
 
 const scrypt = promisify(scryptCallback);
 const PASSWORD_KEY_LENGTH = 64;
@@ -22,11 +26,18 @@ export function isValidUsername(username: string): boolean {
 }
 
 export function validatePassword(password: unknown): string {
-  if (typeof password !== "string" || password.length < 10) {
-    throw new Error("密码至少需要 10 位");
+  if (
+    typeof password !== "string" ||
+    password.length < ACCOUNT_PASSWORD_MIN_LENGTH
+  ) {
+    throw new Error(
+      `密码至少需要 ${ACCOUNT_PASSWORD_MIN_LENGTH} 位`,
+    );
   }
-  if (password.length > 128) {
-    throw new Error("密码不能超过 128 位");
+  if (password.length > ACCOUNT_PASSWORD_MAX_LENGTH) {
+    throw new Error(
+      `密码不能超过 ${ACCOUNT_PASSWORD_MAX_LENGTH} 位`,
+    );
   }
   return password;
 }

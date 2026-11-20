@@ -61,6 +61,8 @@ const desktopApi: QingjiDesktopApi = {
     ipcRenderer.invoke(DESKTOP_CHANNELS.setAutoStart, enabled),
   openExternal: (url) =>
     ipcRenderer.invoke(DESKTOP_CHANNELS.openExternal, url),
+  openUpdateDownload: (url) =>
+    ipcRenderer.invoke(DESKTOP_CHANNELS.openUpdateDownload, url),
   onFocusTask: (listener: (taskId: string) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, taskId: string) => {
       listener(taskId);

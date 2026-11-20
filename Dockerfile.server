@@ -40,6 +40,8 @@ RUN npm ci --omit=dev \
   && npm cache clean --force
 
 COPY --from=build --chown=node:node /app/services/server/dist services/server/dist
+COPY --from=build --chown=node:node /app/packages/domain/src packages/domain/src
+COPY --from=build --chown=node:node /app/packages/contracts/src packages/contracts/src
 
 USER node
 EXPOSE 8787

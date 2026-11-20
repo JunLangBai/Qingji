@@ -2,10 +2,16 @@ import type {
   AuthRequest,
   AuthResponse,
   AuthUser,
+  PasswordResetRequest,
+  PasswordResetResponse,
   SyncRequest,
   SyncResponse,
 } from "@qingji/contracts";
-import { notifyRelease } from "../updateService";
+import {
+  detectUpdatePlatform,
+  notifyRelease,
+  resolveUpdateDownloadUrl,
+} from "../updateService";
 
 export class ServerRequestError extends Error {
   constructor(
@@ -153,6 +159,22 @@ export async function logoutFromServer(
   });
 }
 
+export async function resetAccountPassword(
+  serverUrl: string,
+  token: string,
+  input: PasswordResetRequest,
+): Promise<PasswordResetResponse> {
+  return requestJson<PasswordResetResponse>(
+    serverUrl,
+    "/v1/auth/password/reset",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
 export async function pushAndPullSync(
   serverUrl: string,
   token: string,
@@ -214,6 +236,7 @@ export function openSyncSocket(options: SyncSocketOptions): () => void {
             latestVersion?: unknown;
             releaseUrl?: unknown;
             notes?: unknown;
+            downloadUrl?: unknown;
           };
           if (
             typeof release.latestVersion === "string" &&
@@ -226,6 +249,11 @@ export function openSyncSocket(options: SyncSocketOptions): () => void {
                 typeof release.notes === "string"
                   ? release.notes
                   : undefined,
+              downloadUrl: resolveUpdateDownloadUrl(
+                release.downloadUrl,
+                options.serverUrl,
+                detectUpdatePlatform(),
+              ),
             });
           }
         }

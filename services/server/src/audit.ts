@@ -9,6 +9,7 @@ export type AuditEventType =
   | "auth.login"
   | "auth.login-failed"
   | "auth.logout"
+  | "auth.password-reset"
   | "auth.rate-limited"
   | "realtime.auth-failed"
   | "sync.mutations"
@@ -24,7 +25,7 @@ export interface AuditEventInput {
   actorUsername?: string;
   ipAddress?: string;
   userAgent?: string;
-  metadata?: Record<string, number | boolean | null>;
+  metadata?: Record<string, number | boolean | string | null>;
 }
 
 export function auditActorRef(username: string): string {

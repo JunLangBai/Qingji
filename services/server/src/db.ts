@@ -203,6 +203,27 @@ const migrations = [
         );
     `,
   },
+  {
+    name: "007_password_reset_audit",
+    sql: `
+      ALTER TABLE audit_events
+        DROP CONSTRAINT IF EXISTS audit_events_event_type_check;
+      ALTER TABLE audit_events
+        ADD CONSTRAINT audit_events_event_type_check CHECK (
+          event_type IN (
+            'auth.register',
+            'auth.login',
+            'auth.login-failed',
+            'auth.logout',
+            'auth.password-reset',
+            'auth.rate-limited',
+            'realtime.auth-failed',
+            'sync.mutations',
+            'sync.failed'
+          )
+        );
+    `,
+  },
 ] as const;
 
 export function createDatabasePool(databaseUrl: string): DatabasePool {

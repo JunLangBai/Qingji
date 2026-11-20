@@ -23,8 +23,10 @@ import {
 import { encryptLegacyMutationResults } from "./taskMutationResults.js";
 import {
   createReleaseDiscovery,
+  getUpdateAsset,
   readConfiguredRelease,
   registerUpdateRoutes,
+  type FetchLike,
 } from "./updates.js";
 
 export interface BuildAppOptions {
@@ -34,6 +36,7 @@ export interface BuildAppOptions {
   corsOrigin?: string;
   taskDataEncryptionKey?: string;
   appRelease?: AppReleaseInfo | null;
+  updateFetcher?: FetchLike;
 }
 
 export interface QingjiServer {
@@ -135,6 +138,7 @@ export async function buildApp(
       realtimeSync: Boolean(pool),
       backupExport: true,
       appUpdates: Boolean(configuredRelease || releaseDiscovery),
+      directDownloads: Boolean(configuredRelease || releaseDiscovery),
       auditLog: Boolean(pool),
       encryptedTaskFields:
         Boolean(process.env.TASK_DATA_ENCRYPTION_KEY) ||
@@ -146,6 +150,7 @@ export async function buildApp(
     app,
     configuredRelease,
     releaseDiscovery,
+    options.updateFetcher,
   );
 
   if (pool) {
@@ -195,10 +200,18 @@ export async function buildApp(
             configuredRelease ??
             (await releaseDiscovery?.().catch(() => null));
           if (availableRelease) {
+            const hasDownload =
+              getUpdateAsset(availableRelease, "windows") !== null ||
+              getUpdateAsset(availableRelease, "android") !== null;
             socket.send(
               JSON.stringify({
                 type: "app-update-available",
-                release: availableRelease,
+                release: {
+                  ...availableRelease,
+                  downloadUrl: hasDownload
+                    ? "v1/update/download"
+                    : undefined,
+                },
               }),
             );
           }

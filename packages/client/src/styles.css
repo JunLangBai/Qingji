@@ -1578,6 +1578,27 @@ textarea:focus-visible {
   font-size: var(--fs-caption);
 }
 
+.password-reset-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  background: color-mix(in srgb, var(--paper-warm) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bamboo) 24%, var(--line));
+  border-radius: 10px;
+}
+
+.password-reset-panel strong,
+.password-reset-panel p {
+  margin: 0;
+}
+
+.password-reset-panel p {
+  margin-top: 4px;
+  color: var(--ink-faint);
+  font-size: var(--fs-caption);
+  line-height: 1.55;
+}
+
 .security-warning {
   padding: 9px 10px;
   color: var(--danger);

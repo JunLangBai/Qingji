@@ -18,6 +18,7 @@ export const DESKTOP_CHANNELS = {
   getAutoStart: "app:get-auto-start",
   setAutoStart: "app:set-auto-start",
   openExternal: "app:open-external",
+  openUpdateDownload: "app:open-update-download",
   readProfile: "data:read-profile",
   writeProfile: "data:write-profile",
   readSession: "auth:read-session",
@@ -126,6 +127,16 @@ export interface AuthResponse {
   deviceId: string;
 }
 
+export interface PasswordResetRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface PasswordResetResponse {
+  ok: true;
+  revokedSessions: number;
+}
+
 export interface SyncRequest {
   cursor: number;
   deviceId: string;
@@ -152,7 +163,10 @@ export interface AppReleaseInfo {
   latestVersion: string;
   releaseUrl: string;
   notes?: string;
+  downloadUrl?: string;
 }
+
+export type UpdatePlatform = "windows" | "android";
 
 export interface AppUpdateStatus {
   available: boolean;
@@ -160,6 +174,7 @@ export interface AppUpdateStatus {
   latestVersion?: string;
   releaseUrl?: string;
   notes?: string;
+  downloadUrl?: string;
 }
 
 export interface BackupEnvelope {
@@ -188,6 +203,7 @@ export interface QingjiDesktopApi {
   getAutoStart(): Promise<boolean>;
   setAutoStart(enabled: boolean): Promise<boolean>;
   openExternal(url: string): Promise<void>;
+  openUpdateDownload(url: string): Promise<void>;
   onFocusTask(listener: (taskId: string) => void): () => void;
   readProfile(ownerKey: string): Promise<LocalProfileRecord | null>;
   writeProfile(

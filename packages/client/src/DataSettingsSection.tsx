@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ACCOUNT_PASSWORD_MIN_LENGTH } from "@qingji/domain";
 import type { AppSettings } from "./settingsStore";
 import { backupFileName } from "./data/backup";
 import { isLoopbackServerUrl } from "./data/serverClient";
@@ -10,6 +11,7 @@ import {
   getSyncConflicts,
   importBackupText,
   mergeLocalProfileIntoAccount,
+  resetPassword,
   resolveConflict,
   syncNow,
 } from "./taskStore";
@@ -47,6 +49,9 @@ export function DataSettingsSection({
   const [serverUrl, setServerUrl] = useState(settings.syncServerUrl);
   const [username, setUsername] = useState(settings.syncUsername);
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordResetOpen, setPasswordResetOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -192,6 +197,37 @@ export function DataSettingsSection({
     }
   }
 
+  async function resetAccountPassword() {
+    if (newPassword !== confirmPassword) {
+      setMessage("两次输入的新密码不一致");
+      return;
+    }
+    if (newPassword.length < ACCOUNT_PASSWORD_MIN_LENGTH) {
+      setMessage(`新密码至少需要 ${ACCOUNT_PASSWORD_MIN_LENGTH} 位`);
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    try {
+      const revokedSessions = await resetPassword(password, newPassword);
+      setPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordResetOpen(false);
+      setMessage(
+        revokedSessions > 0
+          ? `密码已重置，${revokedSessions} 个其他设备会话已退出`
+          : "密码已重置",
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "密码重置失败",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const conflicts = getSyncConflicts();
   const loopbackServer = isLoopbackServerUrl(serverUrl);
   const android = /Android/i.test(navigator.userAgent);
@@ -276,6 +312,20 @@ export function DataSettingsSection({
                 手动合入本机事项
               </button>
               <button
+                className="secondary-button"
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setPasswordResetOpen((open) => !open);
+                  setPassword("");
+                  setNewPassword("");
+                  setConfirmPassword("");
+                  setMessage("");
+                }}
+              >
+                {passwordResetOpen ? "取消重置" : "重置密码"}
+              </button>
+              <button
                 className="text-button danger-text"
                 type="button"
                 disabled={busy}
@@ -305,6 +355,67 @@ export function DataSettingsSection({
                 退出账号并切回本机
               </button>
             </div>
+            {passwordResetOpen ? (
+              <div className="password-reset-panel">
+                <div>
+                  <strong>重置账号密码</strong>
+                  <p>
+                    需要验证当前密码。成功后当前设备保持登录，其他设备会话会被
+                    立即退出。
+                  </p>
+                </div>
+                <div className="sync-credentials">
+                  <label className="edit-field">
+                    <span>当前密码</span>
+                    <input
+                      type="password"
+                      value={password}
+                      autoComplete="current-password"
+                      onChange={(event) => setPassword(event.target.value)}
+                    />
+                  </label>
+                  <label className="edit-field">
+                    <span>
+                      新密码（至少 {ACCOUNT_PASSWORD_MIN_LENGTH} 位）
+                    </span>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      minLength={ACCOUNT_PASSWORD_MIN_LENGTH}
+                      autoComplete="new-password"
+                      onChange={(event) => setNewPassword(event.target.value)}
+                    />
+                  </label>
+                  <label className="edit-field">
+                    <span>再次输入新密码</span>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      minLength={ACCOUNT_PASSWORD_MIN_LENGTH}
+                      autoComplete="new-password"
+                      onChange={(event) =>
+                        setConfirmPassword(event.target.value)
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="data-actions">
+                  <button
+                    className="primary-button"
+                    type="button"
+                    disabled={
+                      busy ||
+                      !password ||
+                      newPassword.length < ACCOUNT_PASSWORD_MIN_LENGTH ||
+                      confirmPassword.length < ACCOUNT_PASSWORD_MIN_LENGTH
+                    }
+                    onClick={() => void resetAccountPassword()}
+                  >
+                    {busy ? "重置中" : "确认重置密码"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
             <p className="field-hint">
               退出后显示本机独立事项；服务器账号数据、完成记录和缓存不会被删除。
             </p>
@@ -340,11 +451,13 @@ export function DataSettingsSection({
                 />
               </label>
               <label className="edit-field">
-                <span>密码（至少 10 位）</span>
+                <span>
+                  密码（至少 {ACCOUNT_PASSWORD_MIN_LENGTH} 位）
+                </span>
                 <input
                   value={password}
                   type="password"
-                  minLength={10}
+                  minLength={ACCOUNT_PASSWORD_MIN_LENGTH}
                   autoComplete="current-password"
                   onChange={(event) => setPassword(event.target.value)}
                 />
@@ -361,7 +474,10 @@ export function DataSettingsSection({
                 className="primary-button"
                 type="button"
                 disabled={
-                  busy || !serverUrl || !username || password.length < 10
+                  busy ||
+                  !serverUrl ||
+                  !username ||
+                  password.length < ACCOUNT_PASSWORD_MIN_LENGTH
                 }
                 onClick={() => void authenticate(false)}
               >
@@ -371,7 +487,10 @@ export function DataSettingsSection({
                 className="secondary-button"
                 type="button"
                 disabled={
-                  busy || !serverUrl || !username || password.length < 10
+                  busy ||
+                  !serverUrl ||
+                  !username ||
+                  password.length < ACCOUNT_PASSWORD_MIN_LENGTH
                 }
                 onClick={() => void authenticate(true)}
               >

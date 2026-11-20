@@ -29,6 +29,7 @@ import {
   openSyncSocket,
   pushAndPullSync,
   registerAccount,
+  resetAccountPassword,
 } from "./data/serverClient";
 import {
   clearStoredSession,
@@ -496,6 +497,20 @@ export async function disconnectAccount(): Promise<void> {
   }
   await clearStoredSession();
   await activateSession(null, true);
+}
+
+export async function resetPassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<number> {
+  const session = currentSession;
+  if (!session) throw new Error("请先连接服务器账号");
+  const result = await resetAccountPassword(
+    session.serverUrl,
+    session.token,
+    { currentPassword, newPassword },
+  );
+  return result.revokedSessions;
 }
 
 export async function validateCurrentSession(): Promise<boolean> {

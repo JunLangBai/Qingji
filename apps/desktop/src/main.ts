@@ -25,6 +25,7 @@ import {
   type WriteLocalProfileRequest,
 } from "@qingji/contracts";
 import { resolveUserDataLocation } from "./dataLocation.js";
+import { isAllowedUpdateDownloadUrl } from "./updateDownload.js";
 
 function configureUserDataPath(): void {
   const legacyUserData = app.getPath("userData");
@@ -989,6 +990,17 @@ ipcMain.handle(DESKTOP_CHANNELS.openExternal, async (_event, value: unknown) => 
   if (!isGitHubRelease) throw new Error("EXTERNAL_URL_NOT_ALLOWED");
   await shell.openExternal(url.toString());
 });
+
+ipcMain.handle(
+  DESKTOP_CHANNELS.openUpdateDownload,
+  async (_event, value: unknown) => {
+    if (typeof value !== "string") throw new Error("INVALID_UPDATE_URL");
+    if (!isAllowedUpdateDownloadUrl(value)) {
+      throw new Error("UPDATE_URL_NOT_ALLOWED");
+    }
+    await shell.openExternal(new URL(value).toString());
+  },
+);
 
 ipcMain.handle(DESKTOP_CHANNELS.readProfile, (_event, ownerKey: unknown) => {
   return readLocalProfile(ownerKey);
