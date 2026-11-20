@@ -201,8 +201,9 @@ export async function buildApp(
             (await releaseDiscovery?.().catch(() => null));
           if (availableRelease) {
             const hasDownload =
-              getUpdateAsset(availableRelease, "windows") !== null ||
-              getUpdateAsset(availableRelease, "android") !== null;
+              Boolean(releaseDiscovery) &&
+              (getUpdateAsset(availableRelease, "windows") !== null ||
+                getUpdateAsset(availableRelease, "android") !== null);
             socket.send(
               JSON.stringify({
                 type: "app-update-available",

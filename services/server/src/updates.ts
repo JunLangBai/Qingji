@@ -209,12 +209,17 @@ export function getUpdateStatus(
   currentVersion: string,
   release: AppReleaseInfo | null,
   platform?: UpdatePlatform,
+  allowDownload = true,
 ): AppUpdateStatus {
   if (!release) {
     return { available: false, currentVersion };
   }
   const available = compareVersions(release.latestVersion, currentVersion) > 0;
-  const canDownload = Boolean(platform && getUpdateAsset(release, platform));
+  const canDownload = Boolean(
+    allowDownload &&
+      platform &&
+      getUpdateAsset(release, platform),
+  );
   return {
     available,
     currentVersion,
@@ -259,10 +264,12 @@ export async function registerUpdateRoutes(
         message: "更新平台无效",
       });
     }
+    const currentRelease = await resolveRelease(release, releaseDiscovery);
     return getUpdateStatus(
       currentVersion.replace(/^v/i, ""),
-      await resolveRelease(release, releaseDiscovery),
+      currentRelease,
       platform ?? undefined,
+      release === null,
     );
   });
 

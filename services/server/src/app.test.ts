@@ -56,8 +56,8 @@ describe("public app routes", () => {
       expect(update.json()).toMatchObject({
         available: true,
         latestVersion: "0.2.0",
-        downloadUrl: "v1/update/download?platform=windows",
       });
+      expect(update.json().downloadUrl).toBeUndefined();
 
       const download = await app.inject({
         method: "GET",
